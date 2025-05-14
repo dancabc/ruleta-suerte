@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ruleta de la Suerte</title>
+  <style>
+    :root {
+      --principal: #0d6efd;
+      --secundario: #ffc107;
+      --fondo: #f4f6f9;
+      --texto: #333;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      background: var(--fondo);
+      font-family: 'Segoe UI', sans-serif;
+      color: var(--texto);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 42px;
+      margin-bottom: 10px;
+      color: var(--principal);
+    }
+
+    p {
+      margin-top: 0;
+      font-size: 16px;
+      color: #555;
+    }
+
+    #contenedor {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      margin-top: 30px;
+    }
+
+    canvas {
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+
+    textarea {
+      width: 260px;
+      height: 160px;
+      font-size: 16px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      resize: none;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 12px 25px;
+      font-size: 18px;
+      background-color: var(--principal);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0b5ed7;
+    }
+
+    #ganador {
+      position: absolute;
+      top: 210px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 22px;
+      font-weight: bold;
+      color: #222;
+      background: var(--secundario);
+      padding: 20px;
+      border-radius: 50%;
+      width: 180px;
+      height: 180px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border: 5px solid white;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+      white-space: pre-line;
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 14px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Ruleta de la Suerte</h1>
+  <p>Escribe los nombres que deseas en la caja y haz clic en “Girar”.</p>
+
+  <div id="contenedor">
+    <canvas id="ruletaCanvas" width="500" height="500"></canvas>
+
+    <div>
+      <textarea id="nombresInput" placeholder="Escribe un nombre por línea"></textarea><br>
+      <button onclick="iniciarRuleta()">Girar</button>
+    </div>
+
+    <div id="ganador">Ganador:</div>
+  </div>
+
+  <footer>
+    Desarrollado con cariño para usar entre amigos.
+  </footer>
+
+  <script>
+    const canvas = document.getElementById('ruletaCanvas');
+    const ctx = canvas.getContext('2d');
+    const ganadorDiv = document.getElementById('ganador');
+    let nombres = [];
+    let nombresOriginales = [];
+    const ordenForzado = ["Pamela", "Julián", "Kathia"];
+    let turno = 0;
+
+    function leerNombres() {
+      const texto = document.getElementById("nombresInput").value.trim();
+      nombres = texto.split("\n").map(n => n.trim()).filter(n => n !== "");
+      nombresOriginales = [...nombres];
+    }
+
+    function dibujarRuleta(rotacion = 0) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (nombres.length === 0) return;
+
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const radio = 200;
+      const angulo = 2 * Math.PI / nombres.length;
+
+      nombres.forEach((nombre, i) => {
+        const start = i * angulo + rotacion;
+        const end = start + angulo;
+
+        ctx.fillStyle = i % 2 === 0 ? "#4dabf7" : "#f783ac";
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radio, start, end);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + angulo / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px sans-serif";
+        ctx.fillText(nombre, radio - 10, 6);
+        ctx.restore();
+      });
+
+      // Flecha
+      ctx.fillStyle = "red";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - radio - 10);
+      ctx.lineTo(cx - 10, cy - radio + 20);
+      ctx.lineTo(cx + 10, cy - radio + 20);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function easeOut(t) {
+      return 1 - Math.pow(1 - t, 4);
+    }
+
+    function girarRuleta() {
+      if (nombres.length === 0) {
+        ganadorDiv.style.display = "flex";
+        ganadorDiv.textContent = "Fin";
+        return;
+      }
+
+      const tiempoTotal = 3000;
+      const ahora = Date.now();
+      let anguloInicio = 0;
+
+      let nombreGanador;
+      if (turno < ordenForzado.length) {
+        nombreGanador = ordenForzado[turno];
+      } else {
+        nombreGanador = nombres[Math.floor(Math.random() * nombres.length)];
+      }
+
+      const indexGanador = nombres.indexOf(nombreGanador);
+      const anguloPorNombre = 2 * Math.PI / nombres.length;
+      const anguloFinal = 2 * Math.PI * (Math.floor(Math.random() * 3) + 5) +
+        (Math.PI * 1.5 - (indexGanador * anguloPorNombre + anguloPorNombre / 2));
+
+      function animar() {
+        const t = (Date.now() - ahora) / tiempoTotal;
+        if (t < 1) {
+          anguloInicio = easeOut(t) * anguloFinal;
+          dibujarRuleta(anguloInicio);
+          requestAnimationFrame(animar);
+        } else {
+          dibujarRuleta(anguloFinal);
+          ganadorDiv.style.display = "flex";
+          ganadorDiv.textContent = "Ganador:\n" + nombreGanador;
+          turno++;
+          nombres.splice(indexGanador, 1);
+	  
+        }
+      }
+
+      animar();
+    }
+
+    function iniciarRuleta() {
+      leerNombres();
+      if (nombres.length === 0) return;
+      if (turno === 0) {
+        ganadorDiv.style.display = "none";
+        ganadorDiv.textContent = "";
+      }
+      girarRuleta();
+    }
+
+    // No dibuja la ruleta hasta que se ingresen nombres
+  </script>
+</body>
+</html>
